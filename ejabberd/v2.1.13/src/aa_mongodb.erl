@@ -10,8 +10,6 @@
 -include("jlib.hrl").
 
 -define(OPERATE_USERLIST,"operate_userlist").
-%% -define(OPERATE_GROUPLIST,"operate_grouplist").
-%% -define(OPERATE_SUPERGROUPLIST,"operate_supergrouplist").
 
 -define(SYSN_TIME,20*1000).
 
@@ -23,8 +21,6 @@
 -export([start_link/0,
 		save_mongo/3,
 		set_opt_userlist/0
-%% 		set_opt_grouplist/1,
-%% 		set_opt_supergrouplist/1
 		]).
 
 start_link()->
@@ -52,7 +48,7 @@ start_link()->
 
 
 init([]) ->
-	erlang:send_after(8000, ?MODULE, sysn_mongo),
+	erlang:send_after(8000, ?MODULE, sysn_mongo),			%%同步
 	case aa_hookhandler:ecache_cmd(["GET",?OPERATE_USERLIST]) of
 		{ok,undefined}->
 			UserList = [];
@@ -157,7 +153,7 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 							 msgtype,list_to_binary(MsgType),
 							 msgTime,erlang:list_to_integer(MsgTime),
 							 body,erlang:list_to_binary(JSON),
-							 isread,0
+							 isread,[]
 							 },
 					NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
 			end;
@@ -183,7 +179,7 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 								 msgtype,list_to_binary(MsgType),
 								 msgTime,erlang:list_to_integer(MsgTime),
 								 body,erlang:list_to_binary(JSON),
-								 isread,0
+								 isread,[]
 								 },
 						NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
 				end;
@@ -209,7 +205,7 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 									 msgtype,list_to_binary(MsgType),
 									 msgTime,erlang:list_to_integer(MsgTime),
 									 body,erlang:list_to_binary(JSON),
-									 isread,0
+									 isread,[]
 									 },
 							NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
 					end;
@@ -235,7 +231,7 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 							 msgtype,list_to_binary(MsgType),
 							 msgTime,erlang:list_to_integer(MsgTime),
 							 body,erlang:list_to_binary(JSON),
-							 isread,0
+							 isread,[]
 							 },
 					NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
 			end;
