@@ -16,7 +16,7 @@
 
 set -o errexit
 
-DIR=/home/appusr/ejabberd/runtime/sbin
+DIR=/data/project/old_test/sbin
 CTL="$DIR"/ejabberdctl
 USER=root
 

@@ -6,8 +6,8 @@ CPPFLAGS = -I/usr/local/ssl/include -g -O2 -Wall
 LDFLAGS = 
 LIBS = 
 
-ERLANG_CFLAGS = -I/app/erlang/lib/erlang/lib/erl_interface-3.7.14/include -I/app/erlang/lib/erlang/usr/include
-ERLANG_LIBS = -L/app/erlang/lib/erlang/lib/erl_interface-3.7.14/lib -lerl_interface -lei
+ERLANG_CFLAGS = -I/usr/local/erlang/lib/erlang/lib/erl_interface-3.7.11/include -I/usr/local/erlang/lib/erlang/usr/include
+ERLANG_LIBS = -L/usr/local/erlang/lib/erlang/lib/erl_interface-3.7.11/lib -lerl_interface -lei
 
 EFLAGS += -I ..
 EFLAGS += -pz ..
@@ -25,7 +25,7 @@ BEAMS = $(addprefix $(OUTDIR)/,$(SOURCES:.erl=.beam))
 all:    $(BEAMS)
 
 $(OUTDIR)/%.beam:       %.erl
-	/app/erlang/bin/erlc -W $(EFLAGS) -o $(OUTDIR) $<
+	/usr/local/erlang/bin/erlc -W $(EFLAGS) -o $(OUTDIR) $<
 
 clean:
 	rm -f $(BEAMS)

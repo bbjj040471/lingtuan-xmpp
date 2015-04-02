@@ -9,8 +9,8 @@ LIBS =
 SSL_CFLAGS = -DHAVE_SSL
 SSL_LIBS = -L/usr/local/ssl/lib -lssl -lcrypto
 
-ERLANG_CFLAGS = -I/app/erlang/lib/erlang/lib/erl_interface-3.7.14/include -I/app/erlang/lib/erlang/usr/include
-ERLANG_LIBS = -L/app/erlang/lib/erlang/lib/erl_interface-3.7.14/lib -lerl_interface -lei
+ERLANG_CFLAGS = -I/usr/local/erlang/lib/erlang/lib/erl_interface-3.7.11/include -I/usr/local/erlang/lib/erlang/usr/include
+ERLANG_LIBS = -L/usr/local/erlang/lib/erlang/lib/erl_interface-3.7.11/lib -lerl_interface -lei
 
 # Assume Linux-style dynamic library flags
 DYNAMIC_LIB_CFLAGS = -fpic -shared
@@ -30,7 +30,7 @@ ifdef debug
 	EFLAGS+=+debug_info +export_all
 endif
 
-ifeq (false, true)
+ifeq (true, true)
   EFLAGS+=-DHAVE_MD2
   ERLANG_CFLAGS += -DHAVE_MD2
 endif
@@ -44,7 +44,7 @@ BEAMS = $(addprefix $(OUTDIR)/,$(SOURCES:.erl=.beam))
 all:    $(BEAMS) $(ERLSHLIBS)
 
 $(OUTDIR)/%.beam:       %.erl
-	/app/erlang/bin/erlc -W $(EFLAGS) -o $(OUTDIR) $<
+	/usr/local/erlang/bin/erlc -W $(EFLAGS) -o $(OUTDIR) $<
 
 #all:	$(ERLSHLIBS)
 #	erl -s make all report "{outdir, \"..\"}" -noinput -s erlang halt
