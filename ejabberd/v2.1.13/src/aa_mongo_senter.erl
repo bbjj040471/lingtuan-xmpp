@@ -28,6 +28,53 @@ sysn_write(Data)->
 			gen_server:cast(Pid,{sysn_write,Data})
 	end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%test  mongodb  test
+%%TODO
+%% test_one(N,Type)->
+%% 	Table = list_to_binary("test_mongodb"++erlang:atom_to_list(Type)++""),
+%% 	List = lists:seq(1, N),
+%% 	Data = 
+%% 	lists:map(fun(NN)->
+%% 				{id,NN,teststr,<<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">>}	  
+%% 			  end, List),
+%% 	{ok,ConnectPid} = mongo_pool:checkout(?MONGO_POOL),
+%% 	if
+%% 		Type =:= once->
+%% 			Time = now(),
+%% 			lists:foreach(fun(D)->
+%% 							mongo:insert(ConnectPid, Table, D)	  
+%% 						  end, Data),
+%% 			Diff = timer:now_diff(now(), Time),
+%% 			?WARNING_MSG("diff time:~p",[Diff]);
+%% 		Type =:= batch->
+%% 			Time = now(),
+%% 			mongo:insert(ConnectPid, Table, Data),
+%% 			Diff = timer:now_diff(now(), Time),
+%% 			?WARNING_MSG("diff time:~p",[Diff]);
+%% 		Type =:= moreonce->
+%% 			Time = now(),
+%% 			lists:foreach(fun(D)->
+%% 							{ok,ConnectPidddd} = mongo_pool:checkout(?MONGO_POOL),
+%% 							mongo:insert(ConnectPidddd, Table, D)	  
+%% 						  end, Data),
+%% 			Diff = timer:now_diff(now(), Time),
+%% 			?WARNING_MSG("diff time:~p",[Diff]);
+%% 		Type =:= moreonce2->
+%% 			Diff =
+%% 			lists:foldl(fun(D,Acc)->
+%% 							{ok,ConnectPidddd} = mongo_pool:checkout(?MONGO_POOL),
+%% 							Time = now(),
+%% 							mongo:insert(ConnectPidddd, Table, D),
+%% 							timer:now_diff(now(), Time)+Acc	  
+%% 						  end,0, Data),
+%% 			?WARNING_MSG("diff time:~p",[Diff]);
+%% 		true->
+%% 			skip
+%% 	end.
+
+
+
+
 %%%获取需要的运营账号
 %%%此逻辑在aa_mongodb进程中执行，写在这里只是为了管理方便
 read_opt_uidlist()->		

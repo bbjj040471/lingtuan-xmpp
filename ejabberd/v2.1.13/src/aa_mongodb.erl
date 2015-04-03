@@ -11,7 +11,7 @@
 
 -define(OPERATE_USERLIST,"operate_userlist").
 
--define(SYSN_TIME,20*1000).
+-define(SYSN_TIME,20*1000).			%%同步时间间隔
 
 -define(MONGO_POOL,mongo_pool).
 
@@ -31,7 +31,7 @@ start_link()->
 %% ====================================================================
 %% Behavioural functions 
 %% ====================================================================
--record(state, {msgdict,userlist}).
+-record(state, {userlist}).
 
 %% init/1
 %% ====================================================================
@@ -48,7 +48,7 @@ start_link()->
 
 
 init([]) ->
-	erlang:send_after(8000, ?MODULE, sysn_mongo),			%%同步
+	erlang:send_after(8000, ?MODULE, sysn_mongo),			%%同步mongo数据库
 	case aa_hookhandler:ecache_cmd(["GET",?OPERATE_USERLIST]) of
 		{ok,undefined}->
 			UserList = [];
@@ -58,8 +58,10 @@ init([]) ->
 			UserList = []
 	end,
 	?WARNING_MSG("sysn_mongo state:~p",[UserList]),
-    {ok, #state{msgdict = [],userlist = UserList}}.
+    {ok, #state{userlist = UserList}}.
 
+
+%%异步存库
 save_mongo(From, To, Packet)->
 	try
 	    case Packet of 
@@ -142,9 +144,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 			FResult = lists:member(From, State#state.userlist),
 			if
 				Result =:= false,FResult =:= false->
-					NewState = State;
+					skip;
 				true->
 					[JSON] = aa_log:get_text_message_from_packet(Packet),
+					Body = normal_deel_json_to_bson(JSON),
 					DbMsg = {
 							 id,list_to_binary(Mid),
 							 from,From,
@@ -152,10 +155,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 							 type,list_to_binary(Type),
 							 msgtype,list_to_binary(MsgType),
 							 msgTime,erlang:list_to_integer(MsgTime),
-							 body,erlang:list_to_binary(JSON),
+							 body,Body,
 							 isread,[]
 							 },
-					NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
+					aa_mongo_senter:sysn_write([DbMsg])
 			end;
 		"groupchat"->
 				From = erlang:list_to_integer(Fromstr),
@@ -168,9 +171,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 				end,
 				if
 					Result =:= false->
-						NewState = State;
+						skip;
 					true->
 						[JSON] = aa_log:get_text_message_from_packet(Packet),
+						Body = normal_deel_json_to_bson(JSON),
 						DbMsg = {
 								 id,list_to_binary(Mid),
 								 from,From,
@@ -178,10 +182,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 								 type,list_to_binary(Type),
 								 msgtype,list_to_binary(MsgType),
 								 msgTime,erlang:list_to_integer(MsgTime),
-								 body,erlang:list_to_binary(JSON),
+								 body,Body,
 								 isread,[]
 								 },
-						NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
+						aa_mongo_senter:sysn_write([DbMsg])
 				end;
 		"super_groupchat"->
 					From = erlang:list_to_integer(Fromstr),
@@ -194,9 +198,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 					end,
 					if
 						Result =:= false->
-							NewState = State;
+							skip;
 						true->
 							[JSON] = aa_log:get_text_message_from_packet(Packet),
+							Body = normal_deel_json_to_bson(JSON),
 							DbMsg = {
 									 id,list_to_binary(Mid),
 									 from,From,
@@ -204,10 +209,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 									 type,list_to_binary(Type),
 									 msgtype,list_to_binary(MsgType),
 									 msgTime,erlang:list_to_integer(MsgTime),
-									 body,erlang:list_to_binary(JSON),
+									 body,Body,
 									 isread,[]
 									 },
-							NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
+							aa_mongo_senter:sysn_write([DbMsg])
 					end;
 		"system"->
 			To = erlang:list_to_integer(Tostr),
@@ -220,9 +225,10 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 			end,
 			if
 				Result=:= false->
-					NewState = State;
+					skip;
 				true->
 					[JSON] = aa_log:get_text_message_from_packet(Packet),
+					Body = normal_deel_json_to_bson(JSON),
 					DbMsg = {
 							 id,list_to_binary(Mid),
 							 from,From,
@@ -230,15 +236,15 @@ handle_cast({save_mongo,#jid{luser = Fromstr} = _FromJid, #jid{luser = Tostr} = 
 							 type,list_to_binary(Type),
 							 msgtype,list_to_binary(MsgType),
 							 msgTime,erlang:list_to_integer(MsgTime),
-							 body,erlang:list_to_binary(JSON),
+							 body,Body,
 							 isread,[]
 							 },
-					NewState = State#state{msgdict = [DbMsg|State#state.msgdict]}
+					aa_mongo_senter:sysn_write([DbMsg])
 			end;
 		_->
-			NewState = State
+			skip
 	end,
-	{noreply, NewState};
+	{noreply, State};
 					
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -257,7 +263,6 @@ handle_cast(_Msg, State) ->
 %% ====================================================================
 handle_info(sysn_mongo,State)->
 	?INFO_MSG("sysn_mongo state:~p",[State]),
-	aa_mongo_senter:sysn_write(State#state.msgdict),
 	case aa_hookhandler:ecache_cmd(["GET",?OPERATE_USERLIST]) of
 		{ok,undefined}->
 			UserList = [];
@@ -266,7 +271,7 @@ handle_info(sysn_mongo,State)->
 		_->
 			UserList = []
 	end,
-	NewState = State#state{msgdict = [],userlist = UserList},
+	NewState = State#state{userlist = UserList},
 	erlang:send_after(?SYSN_TIME, ?MODULE, sysn_mongo),
 	{noreply, NewState};
 
@@ -303,4 +308,19 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %% ====================================================================
 
-
+normal_deel_json_to_bson(JSON)->
+	{ok,{obj,Ljson},_} = rfc4627:decode(erlang:list_to_binary(JSON)),
+	Ncover = lists:keydelete("cover", 1, Ljson),
+	Tsonlist = 
+		case lists:keyfind("groupmember", 1, Ncover) of
+			{_,Grm}->
+				NewGrm = 
+				lists:map(fun(G)->
+							{_,Gd} = G,
+							list_to_tuple(lists:append(lists:map(fun({K,V})->[erlang:list_to_atom(K),V] end, Gd)))
+						  end, Grm),
+				lists:keyreplace("groupmember", 1, Ncover, {"groupmember",NewGrm});
+			_->
+				Ncover
+		end,
+	list_to_tuple(lists:append(lists:map(fun({K,V})->[erlang:list_to_atom(K),V] end, Tsonlist))).
