@@ -11,7 +11,7 @@
 
 -define(OPERATE_USERLIST,"operate_userlist").
 
--define(SYSN_TIME,20*1000).			%%同步时间间隔
+-define(SYSN_TIME,30*1000).			%%同步时间间隔
 
 -define(MONGO_POOL,mongo_pool).
 
@@ -19,8 +19,7 @@
 %% API functions
 %% ====================================================================
 -export([start_link/0,
-		save_mongo/3,
-		set_opt_userlist/0
+		save_mongo/3
 		]).
 
 start_link()->
@@ -48,15 +47,14 @@ start_link()->
 
 
 init([]) ->
-	erlang:send_after(8000, ?MODULE, sysn_mongo),			%%同步mongo数据库
-	case aa_hookhandler:ecache_cmd(["GET",?OPERATE_USERLIST]) of
-		{ok,undefined}->
-			UserList = [];
-		{ok,Bin} when is_binary(Bin)->
-			UserList = lists:filter(fun(Uid)-> erlang:is_integer(Uid) end, erlang:binary_to_term(Bin));
-		_->
-			UserList = []
-	end,
+	UserList = 
+		try
+			lists:filter(fun(Uid)-> erlang:is_integer(Uid) end, aa_mongo_senter:read_opt_uidlist())
+		catch
+			_:_->
+				[]
+		end,
+	erlang:send_after(?SYSN_TIME, ?MODULE, read_mongouser),			%%同步mongo数据库中的运营账户
 	?WARNING_MSG("sysn_mongo state:~p",[UserList]),
     {ok, #state{userlist = UserList}}.
 
@@ -75,12 +73,6 @@ save_mongo(From, To, Packet)->
 			?ERROR_MSG("Error happen at ~p :save_mongo()reason:~p",[?MODULE,{E,R}])
 	end.
 
-%%设置运营账户。
-set_opt_userlist()->
-	Userlist = aa_mongo_senter:read_opt_uidlist(),
-	aa_hookhandler:ecache_cmd(["SET",?OPERATE_USERLIST,erlang:term_to_binary(Userlist)]),
-	gen_server:call(?MODULE, {reset_opt,{userlist,Userlist}}).
-
 %% handle_call/3
 %% ====================================================================
 %% @doc <a href="http://www.erlang.org/doc/man/gen_server.html#Module:handle_call-3">gen_server:handle_call/3</a>
@@ -98,14 +90,6 @@ set_opt_userlist()->
 	Timeout :: non_neg_integer() | infinity,
 	Reason :: term().
 %% ====================================================================
-handle_call({reset_opt,{Type,Data}},_from,State)->
-	if
-		Type =:= userlist ->
-			NewState = State#state{userlist = Data};
-		true->
-			NewState = State
-	end,
-	{reply,ok,NewState};
 
 handle_call(_Request, _From, State) ->
     Reply = error,
@@ -261,18 +245,11 @@ handle_cast(_Msg, State) ->
 	NewState :: term(),
 	Timeout :: non_neg_integer() | infinity.
 %% ====================================================================
-handle_info(sysn_mongo,State)->
+handle_info(read_mongouser,State)->
 	?INFO_MSG("sysn_mongo state:~p",[State]),
-	case aa_hookhandler:ecache_cmd(["GET",?OPERATE_USERLIST]) of
-		{ok,undefined}->
-			UserList = [];
-		{ok,Bin} when is_binary(Bin)->
-			UserList = lists:filter(fun(Uid)-> erlang:is_integer(Uid) end, erlang:binary_to_term(Bin));
-		_->
-			UserList = []
-	end,
+	UserList = lists:filter(fun(Uid)-> erlang:is_integer(Uid) end, aa_mongo_senter:read_opt_uidlist()),
 	NewState = State#state{userlist = UserList},
-	erlang:send_after(?SYSN_TIME, ?MODULE, sysn_mongo),
+	erlang:send_after(?SYSN_TIME, ?MODULE, read_mongouser),
 	{noreply, NewState};
 
 handle_info(_Info, State) ->
