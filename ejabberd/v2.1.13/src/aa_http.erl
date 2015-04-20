@@ -86,7 +86,8 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% http://localhost:5380/?body={"method":"process_counter"}
 handle_call({handle_http,Req}, _From, State) ->
-	Reply = try
+	Reply = 
+		try
 		Method = Req:get(method),
 		Args = case Method of
 			'GET' ->
@@ -120,6 +121,20 @@ handle_call({handle_http,Req}, _From, State) ->
 			"process_counter" ->
 				Counter = aa_process_counter:process_counter(),
 				http_response({#success{sn=list_to_binary(SN),success=true,entity=Counter},Req});
+			"msg_counter" when S =:= "withdate"->
+				try
+					{ok,P} = rfc4627:get_field(Obj, "params"),
+					{ok,Yo} = rfc4627:get_field(P, "y"),
+					{ok,Mo} = rfc4627:get_field(P, "m"),
+					{ok,Do} = rfc4627:get_field(P, "d"),
+					CounterList = aa_process_counter:msg_counter(Yo,Mo,Do),
+					http_response({#success{sn=list_to_binary(SN),success=true,entity=CounterList},Req})
+				catch
+					_:_->
+						Err = erlang:get_stacktrace(),
+						?WARNING_MSG("msg_counter:~p",[Err]),
+						http_response({#success{sn=list_to_binary(SN),success=false,entity=list_to_binary("error")},Req})
+				end;
 			"add" when S =:= "blacklist" ->
 				?INFO_MSG("http blacklist.add ::> ~p",[Args]),
 				try
@@ -169,6 +184,26 @@ handle_call({handle_http,Req}, _From, State) ->
 					_:_->
 						Err = erlang:get_stacktrace(),
 						http_response({#success{sn=list_to_binary(SN),success=false,entity=list_to_binary(Err)},Req}) 
+				end;
+			"reload" when S =:= "super_group_user"->
+				?INFO_MSG("http super_group_user.reload ::> ~p",[Args]),
+				try
+					{ok,P} = rfc4627:get_field(Obj, "params"),
+					{ok,GID} = rfc4627:get_field(P, "gid"),
+					{ok,Domain} = rfc4627:get_field(P, "domain"),
+					GID_str = case is_binary(GID) of true -> binary_to_list(GID); _-> GID end,
+					Domain_str = case is_binary(Domain) of true -> binary_to_list(Domain); _-> Domain end,
+					case aa_super_group_chat:reload_group_user(Domain_str,GID_str) of 
+						{_,_,_,_,_} ->
+							http_response({#success{sn=list_to_binary(SN),success=true,entity=list_to_binary("ok")},Req});
+						_ ->
+							http_response({#success{sn=list_to_binary(SN),success=false,entity=list_to_binary("callback_error")},Req}) 
+					end
+				catch
+					_:_->
+						Err = erlang:get_stacktrace(),
+						?ERROR_MSG("group_user.reload.error ~p",[Err]),
+						http_response({#success{sn=list_to_binary(SN),success=false,entity=exception},Req})
 				end;
 			"reload" when S =:= "group_user" ->
 				?INFO_MSG("http group_user.reload ::> ~p",[Args]),
@@ -262,7 +297,7 @@ handle_call({handle_http,Req}, _From, State) ->
 		end
 	catch
 		_:Reason -> 
-			?INFO_MSG("==== aa_http_normal ====~p",[Reason]) 
+			?INFO_MSG("==== aa_http_normal ====~p",[{Reason,erlang:get_stacktrace()}]) 
 	end,
 	{reply,Reply, State};
 
